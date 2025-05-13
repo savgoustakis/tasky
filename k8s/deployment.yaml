@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tasky-deployment
-  namespace: default # Or your chosen namespace like 'tasky-ns'
+  namespace: tasky-ns
   labels:
     app: tasky
 spec:
@@ -24,14 +24,11 @@ spec:
         ports:
         - containerPort: 8080 # Your Go application exposes port 8080
         env:
-        # --- UPDATED ENVIRONMENT VARIABLES BASED ON YOUR README ---
-        - name: MONGODB_URI
-          # Replace the placeholders below with actual values from your Terraform outputs:
-          #   - YOUR_DB_ADMIN_USER (e.g., "wizadmin")
-          #   - YOUR_DB_ADMIN_PASSWORD (e.g., "WizDemoP@ssw0rd!")
-          #   - YOUR_DB_VM_PUBLIC_IP (e.g., "34.123.45.67")
-          # Your database port is 27017, and database name is 'taskydb' (from startup script)
-          value: "mongodb://YOUR_DB_ADMIN_USER:YOUR_DB_ADMIN_PASSWORD@YOUR_DB_VM_PUBLIC_IP:27017/taskydb?authSource=admin"
+         - name: MONGODB_URI
+          #   - mongodb_admin_username: "wizadmin"
+          #   - mongodb_admin_password: "WizDemoP@ssw0rd!"
+          #   - mongodb_vm_public_ip: "34.30.215.189"
+          # database port is 27017, and database name is 'taskydb' (from startup script)
+          value: "mongodb://wizadmin:WizDemoP@ssw0rd!@34.30.215.189:27017/taskydb?authSource=admin"
         - name: SECRET_KEY
-          value: "your-secret-key-for-jwt-tokens-demo-purposes" # Replace with a strong secret for demo
-        # --- END OF UPDATED ENVIRONMENT VARIABLES ---
+          value: "a-strong-secret-key-for-your-jwt-demo-app-123xyz" # <--- CHANGE THIS to your desired secret string for the demo
