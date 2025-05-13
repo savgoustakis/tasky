@@ -1,0 +1,66 @@
+steps:
+  # 1. Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:$COMMIT_SHA'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:latest'
+      - '.' # Assumes Dockerfile is in the root
+    id: 'Build Docker Image'
+
+  # 2. Push the commit-specific tagged image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:$COMMIT_SHA']
+    id: 'Push Specific Tag'
+
+  # 3. Push the 'latest' tagged image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:latest']
+    id: 'Push Latest Tag'
+
+  # 4. Dynamically update the image in the Kubernetes Deployment manifest
+  # This replaces the placeholder image with the specific one built in this pipeline.
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Updating k8s/deployment.yaml with image: ${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:${COMMIT_SHA}"
+        # Using sed to replace the image line. Ensure your placeholder is unique enough.
+        # Example: image: YOUR_ARTIFACT_REGISTRY_PATH/tasky:placeholder
+        sed -i "s|image: YOUR_ARTIFACT_REGISTRY_PATH/tasky:placeholder|image: ${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:${COMMIT_SHA}|g" k8s/deployment.yaml
+        # If your placeholder is different, adjust the sed command accordingly.
+        # For example, if your placeholder was just 'image: placeholder-image':
+        # sed -i "s|image: placeholder-image|image: ${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:${COMMIT_SHA}|g" k8s/deployment.yaml
+    id: 'Update Image in Deployment Manifest'
+
+  # 5. Deploy to GKE using kubectl
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - 'apply'
+      - '-f'
+      - 'k8s/' # Applies all YAML files in the k8s/ directory
+      # - '--namespace=${_K8S_NAMESPACE}' # Uncomment if deploying to a specific, pre-defined namespace
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=${_GKE_ZONE}'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=${_GKE_CLUSTER_NAME}'
+      - 'CLOUDSDK_CORE_PROJECT=${PROJECT_ID}' # PROJECT_ID is a built-in substitution from Cloud Build
+    id: 'Deploy to GKE'
+
+images:
+  - '${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:$COMMIT_SHA'
+  - '${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:latest'
+
+substitutions:
+  # These will be configured in your Cloud Build Trigger settings
+  # Default values can be provided here if desired, but trigger settings override them.
+  _ARTIFACT_REGISTRY_PATH: 'us-central1-docker.pkg.dev/your-project-id/your-repo-id' # EXAMPLE - REPLACE
+  _IMAGE_NAME: 'tasky'
+  _GKE_CLUSTER_NAME: 'your-gke-cluster-name' # EXAMPLE - REPLACE
+  _GKE_ZONE: 'us-central1-a'               # EXAMPLE - REPLACE
+  # _K8S_NAMESPACE: 'tasky-ns'            # Optional: uncomment if using a specific namespace
+
+options:
+  logging: CLOUD_LOGGING_ONLY
