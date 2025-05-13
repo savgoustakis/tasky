@@ -1,5 +1,5 @@
 steps:
-  # 1. Build the Docker image
+  # 1. Build the Docker image (will use your Go Dockerfile)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -10,30 +10,26 @@ steps:
       - '.' # Assumes Dockerfile is in the root
     id: 'Build Docker Image'
 
-  # 2. Push the commit-specific tagged image
+  # 2. Push the 'commit-sha' tagged image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', '${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:$COMMIT_SHA']
-    id: 'Push Specific Tag'
+    id: 'Push Specific Tag to Artifact Registry'
 
-  # 3. Push the 'latest' tagged image
+  # 3. Push the 'latest' tagged image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', '${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:latest']
-    id: 'Push Latest Tag'
+    id: 'Push Latest Tag to Artifact Registry'
 
   # 4. Dynamically update the image in the Kubernetes Deployment manifest
-  # This replaces the placeholder image with the specific one built in this pipeline.
+  # This replaces the placeholder image with the exact image built in this pipeline.
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         echo "Updating k8s/deployment.yaml with image: ${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:${COMMIT_SHA}"
-        # Using sed to replace the image line. Ensure your placeholder is unique enough.
-        # Example: image: YOUR_ARTIFACT_REGISTRY_PATH/tasky:placeholder
+        # Ensure this sed command exactly matches the placeholder in your k8s/deployment.yaml
         sed -i "s|image: YOUR_ARTIFACT_REGISTRY_PATH/tasky:placeholder|image: ${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:${COMMIT_SHA}|g" k8s/deployment.yaml
-        # If your placeholder is different, adjust the sed command accordingly.
-        # For example, if your placeholder was just 'image: placeholder-image':
-        # sed -i "s|image: placeholder-image|image: ${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:${COMMIT_SHA}|g" k8s/deployment.yaml
     id: 'Update Image in Deployment Manifest'
 
   # 5. Deploy to GKE using kubectl
@@ -42,7 +38,7 @@ steps:
       - 'apply'
       - '-f'
       - 'k8s/' # Applies all YAML files in the k8s/ directory
-      # - '--namespace=${_K8S_NAMESPACE}' # Uncomment if deploying to a specific, pre-defined namespace
+      # - '--namespace=${_K8S_NAMESPACE}' # Uncomment if deploying to a specific namespace
     env:
       - 'CLOUDSDK_COMPUTE_ZONE=${_GKE_ZONE}'
       - 'CLOUDSDK_CONTAINER_CLUSTER=${_GKE_CLUSTER_NAME}'
@@ -54,12 +50,10 @@ images:
   - '${_ARTIFACT_REGISTRY_PATH}/${_IMAGE_NAME}:latest'
 
 substitutions:
-  # These will be configured in your Cloud Build Trigger settings
-  # Default values can be provided here if desired, but trigger settings override them.
-  _ARTIFACT_REGISTRY_PATH: 'us-central1-docker.pkg.dev/your-project-id/your-repo-id' # EXAMPLE - REPLACE
+  _ARTIFACT_REGISTRY_PATH: 'us-central1-docker.pkg.dev/your-project-id/your-repo-id' # REPLACE
   _IMAGE_NAME: 'tasky'
-  _GKE_CLUSTER_NAME: 'your-gke-cluster-name' # EXAMPLE - REPLACE
-  _GKE_ZONE: 'us-central1-a'               # EXAMPLE - REPLACE
+  _GKE_CLUSTER_NAME: 'your-gke-cluster-name' # REPLACE
+  _GKE_ZONE: 'us-central1-a'               # REPLACE
   # _K8S_NAMESPACE: 'tasky-ns'            # Optional: uncomment if using a specific namespace
 
 options:
