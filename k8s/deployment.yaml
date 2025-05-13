@@ -1,1 +1,36 @@
-
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tasky-deployment
+  namespace: default # Or your chosen namespace
+  labels:
+    app: tasky
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tasky
+  template:
+    metadata:
+      labels:
+        app: tasky
+    spec:
+      serviceAccountName: tasky-sa # From rbac.yaml
+      containers:
+      - name: tasky
+        # This image path will be dynamically updated by Cloud Build
+        image: YOUR_ARTIFACT_REGISTRY_PATH/tasky:placeholder 
+        ports:
+        - containerPort: 8080 # <-- CHANGED to match your Go app's EXPOSE
+        env:
+        # Ensure your Go app reads these environment variables for DB config
+        - name: MONGODB_USERNAME
+          value: "YOUR_DB_ADMIN_USER" # Replace with actual value
+        - name: MONGODB_PASSWORD
+          value: "YOUR_DB_ADMIN_PASSWORD" # Replace with actual value
+        - name: MONGODB_HOSTNAME
+          value: "YOUR_DB_VM_PUBLIC_IP" # Replace with actual value
+        - name: MONGODB_PORT
+          value: "27017"
+        - name: MONGODB_DATABASE
+          value: "taskydb"
